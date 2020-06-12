@@ -2,6 +2,7 @@
 
 # 自动添加following
 1. 先找一个follower 比较多的github账号, 获取他的id
+    ![followers.png](image/followers.png)
     ![githubNickname.png](image/githubNickname.png)
 
 2. 获取个人access token
