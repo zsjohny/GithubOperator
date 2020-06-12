@@ -1,11 +1,14 @@
 # GithubOperator
 
-# 自动添加following
-1. 先找一个follower 比较多的github账号, 获取他的id
-    ![followers.png](image/followers.png)
+##  Automatically follow github user accounts
+
+1. First find a github account with more followers and get his id
+
     ![githubNickname.png](image/githubNickname.png)
 
-2. 获取个人access token
+2. Get personal access token
+
+    ![followers.png](image/followers.png)
 
     ![PersonalAccessTokens.png](image/PersonalAccessTokens.png)
 
@@ -13,7 +16,7 @@
     Click generate new token
     ```
    
-3. 更新配置文件 config.ini
+3. Update config.ini
     ```
     [default]
     email = github email
@@ -26,7 +29,7 @@
     apiUrl = https://api.github.com
     ```
 
-4. 克隆
+4. Clone
     ```
     git clone  && cd GithubOperator && ./AutoAddFollower.py
     ```
