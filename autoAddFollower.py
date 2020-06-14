@@ -97,7 +97,7 @@ class GithubLogin(config.Base):
         response = self.session.get(self.login_url, headers=self.headers)
 
         if response.status_code != 200:
-            logging.error('Get token fail, Please retry...')
+            logging.error(f'Get token fail: {response.status_code}, Please retry...')
             return None
         match = re.search(
             r'name="authenticity_token" value="(.*?)"', response.text)
@@ -256,6 +256,12 @@ if __name__ == '__main__':
             logging.info("Added: Thread-{}".format(threading.currentThread().ident))
             print(f"Following Page: {page} Followings")
             page = page + step
+
+
+        group = 1
+        print(f"Current Group: {group}, Total Group: {step}")
+        group = group + 1
+        print(f"Just a moment, please wait...")
 
         for x in as_completed(futures):
             logging.info("{} completed".format(x.result()))
