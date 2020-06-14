@@ -1,4 +1,5 @@
 .idea/
 config.ini
 config.ini2
+retry_detail_file.txt
 __pycache__

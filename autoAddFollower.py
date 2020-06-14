@@ -13,6 +13,51 @@ import logging
 import re
 import base64
 import config
+import multiprocessing as mp
+import os
+from time import sleep
+
+
+class Mp:
+    def __init__(self):
+        self.results = []
+        self.pool = ""
+        self.result = ""
+
+    @staticmethod
+    def info():
+        # logging.info('current name:', title)
+        logging.info('parent process:', os.getppid())
+        logging.info('process id:', os.getpid())
+
+    def task_pool(self, task, args):
+        self.results = []
+        self.pool = mp.Pool()
+        self.result = self.pool.apply_async(task, args=(args,))
+        self.results.append(self.result)
+        self.pool.close()
+        self.pool.join()
+        for self.result in self.results:
+            logging.info(self.result.get())
+
+
+class OperateFiles:
+    def __init__(self, file_name, write_str):
+        self.str = write_str
+        self.file_name = file_name
+
+    def write(self):
+        # 打开文件
+        logging.info(f"file name: {self.file_name}")
+
+        with open(self.file_name, 'a+') as f:
+            # Move read cursor to the start of file.
+            f.seek(0)
+            # If file is not empty then append '\n'
+            data = f.read()
+            if len(data) > 0:
+                f.write("\n")
+            f.write(self.str)
 
 
 class InitLogin(config.Base):
@@ -111,19 +156,18 @@ class GetSomeoneInfo(InitCrawler):
 
     def get_followings(self):
         following_raw = requests.get(self.baseUrls, cookies=self.cookies, headers=self.header, timeout=120,
-                                     params=self.followingQueryString).content
-        # print(following_raw)
-        pattern = re.compile(rb'link-gray">(.*)<')
+                                     params=self.followingQueryString).content.decode('utf-8')
+        pattern = re.compile('pl-1">(.*)<')
         following = pattern.findall(following_raw)
-        following = [i.decode('utf8') for i in following]
+        # print(following)
         return following
 
     def get_followers(self):
         follower_raw = requests.get(self.baseUrls, cookies=self.cookies, headers=self.header, timeout=120,
-                                    params=self.followerQueryString).content
-        pattern = re.compile(rb'link-gray pl-1">(.*)<')
+                                    params=self.followerQueryString).content.decode('utf-8')
+        pattern = re.compile('pl-1">(.*)<')
         follower = pattern.findall(follower_raw)
-        follower = [i.decode('utf8') for i in follower]
+        # print(follower)
         return follower
 
 
@@ -149,6 +193,9 @@ class AutoAddFollowing(InitLogin):
             self.nicknames.append(self.nickname)
         return self.nicknames
 
+    def get_following_total_count(self):
+        return self.g.get_user().get_following().totalCount
+
     def add_following(self, follow_user):
         # payload = {'username': follow_user}
         r = requests.put(self.apiUrl + f"/user/following/{follow_user}", headers=self.header)
@@ -170,16 +217,37 @@ if __name__ == '__main__':
     # print(login.get_cookies())
 
     # print(config.Base().password)
-    if config.Base().exceeded:
-        exist_list = GetSomeoneInfo(config.Base().user, 1).get_followings()
-    else:
-        exist_list = AutoAddFollowing().get_following()
-    logging.info(f"exist_list: {exist_list}")
+    # total_count = AutoAddFollowing().get_following_total_count()
+    # logging.info(f"current total count: {total_count}")
+
+    exist_list = []
+    retry_count = int(config.Base().retryCount)
+    retry_detail_file = config.Base().retryDetailFile
+
+    while not exist_list:
+        if bool(config.Base().exceeded):
+            exist_list = GetSomeoneInfo(config.Base().user, 1).get_followings()
+        else:
+            exist_list = AutoAddFollowing().get_following()
+    logging.debug(f"exist_list: {exist_list}")
 
     for p in range(2, 10000000):
+        # loop & reset
+        user_list = []
+        count = 0
+
         logging.info(f"page: {p}")
-        user_list = GetSomeoneInfo(config.Base().sourceUser, p).get_followings()
-        logging.info(f"user_list: {user_list}")
+
+        while not user_list and count < retry_count:
+            user_list = GetSomeoneInfo(config.Base().sourceUser, p).get_followings()
+            count = count + 1
+            if count == retry_count:
+                OperateFiles(retry_detail_file, str(p)).write()
+                continue
+            logging.info(f"get page: {p} user_list retry counts: {count}")
+        # print(bool(user_list))
+        # sleep(3)
+        logging.debug(f"user_list: {user_list}")
 
         need_followings = list(set(user_list)-set(exist_list))
         logging.info(f"need_followings: {need_followings}")
@@ -188,4 +256,5 @@ if __name__ == '__main__':
                 AutoAddFollowing().add_following(u)
                 logging.info(f"AutoAddFollowing: {u}")
 
+    # todo： multiThreath
 
