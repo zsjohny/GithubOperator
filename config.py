@@ -13,7 +13,7 @@ import configparser
 import sys
 import json
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 
 class GlobalVar:

@@ -13,32 +13,9 @@ import logging
 import re
 import base64
 import config
-import multiprocessing as mp
-import os
-from time import sleep
-
-
-class Mp:
-    def __init__(self):
-        self.results = []
-        self.pool = ""
-        self.result = ""
-
-    @staticmethod
-    def info():
-        # logging.info('current name:', title)
-        logging.info('parent process:', os.getppid())
-        logging.info('process id:', os.getpid())
-
-    def task_pool(self, task, args):
-        self.results = []
-        self.pool = mp.Pool()
-        self.result = self.pool.apply_async(task, args=(args,))
-        self.results.append(self.result)
-        self.pool.close()
-        self.pool.join()
-        for self.result in self.results:
-            logging.info(self.result.get())
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed
+from multiprocessing import cpu_count
+import threading
 
 
 class OperateFiles:
@@ -120,7 +97,7 @@ class GithubLogin(config.Base):
         response = self.session.get(self.login_url, headers=self.headers)
 
         if response.status_code != 200:
-            logging.error('Get token fail')
+            logging.error('Get token fail, Please retry...')
             return None
         match = re.search(
             r'name="authenticity_token" value="(.*?)"', response.text)
@@ -208,7 +185,7 @@ if __name__ == '__main__':
 
     login = GithubLogin()
     login.login_github()
-    logging.info("login github ok")
+    print("login github ok")
     c = login.get_cookies()
     t = login.get_token()
 
@@ -220,25 +197,29 @@ if __name__ == '__main__':
     # total_count = AutoAddFollowing().get_following_total_count()
     # logging.info(f"current total count: {total_count}")
 
-    exist_list = []
-    retry_count = int(config.Base().retryCount)
-    retry_detail_file = config.Base().retryDetailFile
-
-    while not exist_list:
-        if bool(config.Base().exceeded):
-            exist_list = GetSomeoneInfo(config.Base().user, 1).get_followings()
-        else:
-            exist_list = AutoAddFollowing().get_following()
-    logging.debug(f"exist_list: {exist_list}")
-
-    for p in range(2, 10000000):
+    def task(p: int):
+        """
+        :param p:
+        :return:
+        """
         # loop & reset
+        exist_list = []
         user_list = []
         count = 0
 
         logging.info(f"page: {p}")
 
-        while not user_list and count < retry_count:
+        retry_count = int(config.Base().retryCount)
+        retry_detail_file = config.Base().retryDetailFile
+
+        while not exist_list:
+            if bool(config.Base().exceeded):
+                exist_list = GetSomeoneInfo(config.Base().user, 1).get_followings()
+            else:
+                exist_list = AutoAddFollowing().get_following()
+        logging.debug(f"exist_list: {exist_list}")
+
+        while not user_list and count <= retry_count:
             user_list = GetSomeoneInfo(config.Base().sourceUser, p).get_followings()
             count = count + 1
             if count == retry_count:
@@ -250,11 +231,35 @@ if __name__ == '__main__':
         logging.debug(f"user_list: {user_list}")
 
         need_followings = list(set(user_list)-set(exist_list))
-        logging.info(f"need_followings: {need_followings}")
+        logging.debug(f"need_followings: {need_followings}")
         if need_followings:
             for u in need_followings:
                 AutoAddFollowing().add_following(u)
                 logging.info(f"AutoAddFollowing: {u}")
 
-    # todo： multiThreath
+
+    total_page = int(config.Base().totalPage)
+    step = 5
+    try:
+        workers = cpu_count()*2
+    except NotImplementedError:
+        workers = 1
+
+    for page in range(1, total_page//step):
+        pool = ThreadPoolExecutor(workers)
+        futures = []
+        thread_id = page//step
+        # Submit multi parameters function to Executor
+        # https://github.com/Joldnine/joldnine.github.io/issues/10
+        while page < total_page:
+            futures.append(pool.submit(task, page))
+            logging.info("Added: Thread-{}".format(threading.currentThread().ident))
+            print(f"Following Page: {page} Followings")
+            page = page + step
+
+        for x in as_completed(futures):
+            logging.info("{} completed".format(x.result()))
+
+        print(f"Follow Page: {page} Done")
+
 
