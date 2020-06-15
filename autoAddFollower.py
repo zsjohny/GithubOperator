@@ -25,7 +25,7 @@ class OperateFiles:
 
     def write(self):
         # 打开文件
-        logging.info(f"file name: {self.file_name}")
+        logging.info(f"write file name: {self.file_name}")
 
         with open(self.file_name, 'a+') as f:
             # Move read cursor to the start of file.
@@ -35,6 +35,30 @@ class OperateFiles:
             if len(data) > 0:
                 f.write("\n")
             f.write(self.str)
+
+    def delete(self):
+        # 打开文件
+        logging.info(f"delete file name: {self.file_name}")
+
+        with open(self.file_name, "r+") as f:
+            lines = f.readlines()
+
+        with open(self.file_name, "w+") as f:
+            for line in lines:
+                if line.strip("\n") != self.str:
+                    f.write(line)
+
+    def read(self):
+        # 打开文件
+        logging.info(f"read file name: {self.file_name}")
+
+        with open(self.file_name, 'r+') as f:
+            lines = f.readlines()
+            print(lines)
+            numbers = [int(e.strip()) for e in lines if len(e.strip()) != 0]
+            print(numbers)
+            logging.debug(f"read file list {numbers}")
+            return numbers
 
 
 class InitLogin(config.Base):
@@ -97,7 +121,7 @@ class GithubLogin(config.Base):
         response = self.session.get(self.login_url, headers=self.headers)
 
         if response.status_code != 200:
-            logging.error(f'Get token fail: {response.status_code}, Please retry...')
+            logging.error(f'Get token fail, code: {response.status_code}, Please retry...')
             return None
         match = re.search(
             r'name="authenticity_token" value="(.*?)"', response.text)
@@ -207,10 +231,10 @@ if __name__ == '__main__':
         user_list = []
         count = 0
 
-        logging.info(f"page: {p}")
-
         retry_count = int(config.Base().retryCount)
         retry_detail_file = config.Base().retryDetailFile
+
+        logging.info(f"current page: {p}")
 
         while not exist_list:
             if bool(config.Base().exceeded):
@@ -225,7 +249,7 @@ if __name__ == '__main__':
             if count == retry_count:
                 OperateFiles(retry_detail_file, str(p)).write()
                 continue
-            logging.info(f"get page: {p} user_list retry counts: {count}")
+            logging.info(f"get page: {p} user_list retry counts: {count-1}")
         # print(bool(user_list))
         # sleep(3)
         logging.debug(f"user_list: {user_list}")
@@ -234,33 +258,57 @@ if __name__ == '__main__':
         logging.debug(f"need_followings: {need_followings}")
         if need_followings:
             for u in need_followings:
-                AutoAddFollowing().add_following(u)
+                put_result = AutoAddFollowing().add_following(u)
+                while put_result != 200 and count <= retry_count:
+                    AutoAddFollowing().add_following(u)
+                    count = count + 1
+                    if count == retry_count:
+                        OperateFiles("put_"+retry_detail_file, str(p)).write()
+                        continue
+                    logging.info(f"Add following: {p} retry counts: {count-1}")
                 logging.info(f"AutoAddFollowing: {u}")
-
+        OperateFiles("put_" + retry_detail_file, str(p)).delete()
 
     total_page = int(config.Base().totalPage)
+    retry_detail_file = config.Base().retryDetailFile
     step = 5
     try:
         workers = cpu_count()*2
     except NotImplementedError:
         workers = 1
 
-    for page in range(1, total_page//step):
+    fail_range_page = list(set(OperateFiles("put_"+retry_detail_file, "none").read() +
+                               OperateFiles(retry_detail_file, "none").read()))
+    if not fail_range_page:
+        range_page = range(3, total_page//step)
+        print("Init range pages")
+    else:
+        range_page = fail_range_page
+        print("Retry put fail pages")
+
+    for page in range_page:
         pool = ThreadPoolExecutor(workers)
         futures = []
         thread_id = page//step
         # Submit multi parameters function to Executor
         # https://github.com/Joldnine/joldnine.github.io/issues/10
-        while page < total_page:
-            futures.append(pool.submit(task, page))
-            logging.info("Added: Thread-{}".format(threading.currentThread().ident))
-            print(f"Following Page: {page} Followings")
-            page = page + step
+        if fail_range_page:
+            for fail_page in fail_range_page:
+                futures.append(pool.submit(task, fail_page))
+                logging.info(f"Retry put fail page {fail_page}")
+                logging.info("Added: Thread-{}".format(threading.currentThread().ident))
+                print(f"Following Fail Page: {fail_page} Followings")
+        else:
+            while page < total_page:
+                futures.append(pool.submit(task, page))
+                logging.info("Added: Thread-{}".format(threading.currentThread().ident))
+                print(f"Following Page: {page} Followings")
+                page = page + step
 
-
-        group = 1
-        print(f"Current Group: {group}, Total Group: {step}")
-        group = group + 1
+        if not fail_range_page:
+            group = 1
+            print(f"Current Group: {group}, Total Group: {step}")
+            group = group + 1
         print(f"Just a moment, please wait...")
 
         for x in as_completed(futures):

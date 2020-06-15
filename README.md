@@ -25,11 +25,20 @@
     accessToken = github accessToken
     sourceUser = Most followers someone nickname
     exceeded = True 
+    totalPage = 2000
+    exceeded = True # default. to solve limit of github
     baseUrl = https://github.com/
     apiUrl = https://api.github.com
+    retryDetailFile = retry_detail_file.txt
+    retryCount = 10 # If your network is not good, this parameter can be increased
     ```
 
-4. Clone
+4. Clone and Run
     ```
     git clone  && cd GithubOperator && ./AutoAddFollower.py
     ```
+   
+5. Run fail job
+    If you found put_retry_detail_file.txt and retry_detail_file.txt not 
+    empty, you need `./AutoAddFollower.py` again.
+
