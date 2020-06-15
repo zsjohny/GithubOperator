@@ -51,4 +51,10 @@
     ```
     randomUser = False
     ```
+   
+7. update log level `config.py`
+    ```
+    logging.basicConfig(level=logging.WARNING)
+    ```
+    
 
