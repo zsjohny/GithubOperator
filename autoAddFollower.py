@@ -25,7 +25,7 @@ class OperateFiles:
 
     def write(self):
         # 打开文件
-        logging.info(f"write file name: {self.file_name}")
+        logging.info(f"Ready to write file name: {self.file_name}")
 
         with open(self.file_name, 'a+') as f:
             # Move read cursor to the start of file.
@@ -38,19 +38,21 @@ class OperateFiles:
 
     def delete(self):
         # 打开文件
-        logging.info(f"delete file name: {self.file_name}")
+        logging.info(f"Ready to delete file name: {self.file_name}")
 
         with open(self.file_name, "r+") as f:
             lines = f.readlines()
 
         with open(self.file_name, "w+") as f:
-            for line in lines:
-                if line.strip("\n") != self.str:
-                    f.write(line)
+            if lines:
+                for line in lines:
+                    if line.strip("\n") != self.str or line.strip("\n") == "":
+                        f.write(line)
+                        logging.debug(f"delete file name: {self.file_name}, page{self.str}")
 
     def read(self):
         # 打开文件
-        logging.info(f"read file name: {self.file_name}")
+        logging.info(f"Ready to read file name: {self.file_name}")
 
         with open(self.file_name, 'r+') as f:
             lines = f.readlines()
@@ -268,6 +270,7 @@ if __name__ == '__main__':
                     logging.info(f"Add following: {p} retry counts: {count-1}")
                 logging.info(f"AutoAddFollowing: {u}")
         OperateFiles("put_" + retry_detail_file, str(p)).delete()
+        OperateFiles(retry_detail_file, str(p)).delete()
 
     total_page = int(config.Base().totalPage)
     retry_detail_file = config.Base().retryDetailFile
@@ -280,7 +283,7 @@ if __name__ == '__main__':
     fail_range_page = list(set(OperateFiles("put_"+retry_detail_file, "none").read() +
                                OperateFiles(retry_detail_file, "none").read()))
     if not fail_range_page:
-        range_page = range(3, total_page//step)
+        range_page = range(4, total_page//step)
         print("Init range pages")
     else:
         range_page = fail_range_page
