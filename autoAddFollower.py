@@ -19,6 +19,7 @@ import threading
 import random
 import string
 from utils import str_to_bool
+from time import sleep
 
 
 class OperateFiles:
@@ -78,6 +79,7 @@ class InitCrawler(config.Base):
         self.followerQueryString = {"page": page, "tab": "followers", "_pjax": "#js-pjax-container"}
 
         self.cookies = GithubLogin().get_cookies()
+        self.token = GithubLogin().get_token()
         self.header = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
@@ -173,6 +175,23 @@ class GetSomeoneInfo(InitCrawler):
         follower = pattern.findall(follower_raw)
         # print(follower)
         return follower
+
+    def add_following(self, follow_user):
+        # payload = {'username': follow_user}
+        self.header = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
+
+        }
+        self.followingQueryString = {"target": follow_user}
+        payload = {'commit': 'Follow',
+                   'authenticity_token': self.token}
+        r = requests.post(self.baseUrl + f"users/follow/", data=payload, headers=self.header, cookies=self.cookies,
+                          params=self.followingQueryString)
+        logging.info(r.status_code)
+        logging.info(r.request.body)
+        # logging.info(r.content)
+        return r.status_code
 
 
 class AutoAddFollowing(InitLogin):
@@ -276,13 +295,17 @@ if __name__ == '__main__':
         if need_followings:
             for u in need_followings:
                 put_result = AutoAddFollowing().add_following(u)
+                # put_result = GetSomeoneInfo(config.Base().sourceUser, p).add_following(u, t)
                 while put_result != 200 and count <= retry_count:
+                    if put_result == 404:
+                        pass
                     AutoAddFollowing().add_following(u)
+                    # GetSomeoneInfo(config.Base().sourceUser, p).add_following(u, t)
                     count = count + 1
                     if count == retry_count:
                         OperateFiles("put_"+retry_detail_file, str(p)).write()
                         continue
-                    logging.info(f"Add following: {p}:{u} retry counts: {count-1}, code: {put_result}")
+                    logging.info(f"Add following: {p}: {u} retry counts: {count-1}, code: {put_result}")
                 logging.info(f"AutoAddFollowing: {u}")
 
         if fail_range_page:
