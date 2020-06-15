@@ -7,6 +7,8 @@
 # @Software: PyCharm
 # Running based on python3.6.2 environment
 
+import datetime
+
 
 def str_to_bool(s):
     if s == 'True':
@@ -15,3 +17,10 @@ def str_to_bool(s):
         return False
     else:
         raise ValueError
+
+
+def delta_time(future_time=1592249140):
+    now = datetime.datetime.now().timestamp()
+    delta = (future_time - now)
+    return delta
+

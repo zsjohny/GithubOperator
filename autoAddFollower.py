@@ -18,8 +18,9 @@ from multiprocessing import cpu_count
 import threading
 import random
 import string
-from utils import str_to_bool
+from utils import str_to_bool, delta_time
 from time import sleep
+import json
 
 
 class OperateFiles:
@@ -79,7 +80,7 @@ class InitCrawler(config.Base):
         self.followerQueryString = {"page": page, "tab": "followers", "_pjax": "#js-pjax-container"}
 
         self.cookies = GithubLogin().get_cookies()
-        self.token = GithubLogin().get_token()
+        # self.token = GithubLogin().get_token()
         self.header = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
@@ -219,6 +220,27 @@ class AutoAddFollowing(InitLogin):
     def get_following_total_count(self):
         return self.g.get_user().get_following().totalCount
 
+    def get_rate_limit(self):
+        r = requests.get(self.apiUrl + f"/rate_limit", headers=self.header)
+        logging.debug(r.status_code)
+        logging.debug(r.content)
+        limit = int(json.loads(r.content.decode('utf-8'))['rate']['limit'])
+        return limit
+
+    def get_rate_remaining(self):
+        r = requests.get(self.apiUrl + f"/rate_limit", headers=self.header)
+        logging.debug(r.status_code)
+        logging.debug(r.content)
+        remaining = int(json.loads(r.content.decode('utf-8'))['rate']['remaining'])
+        return remaining
+
+    def get_rate_reset(self):
+        r = requests.get(self.apiUrl + f"/rate_limit", headers=self.header)
+        logging.debug(r.status_code)
+        logging.debug(r.content)
+        reset = int(json.loads(r.content.decode('utf-8'))['rate']['reset'])
+        return reset
+
     @staticmethod
     def random_user():
         random_str = ''.join(random.sample(string.ascii_letters + string.digits + '-' + '_', random.randint(4, 20)))
@@ -307,49 +329,65 @@ if __name__ == '__main__':
                         continue
                     logging.info(f"Add following: {p}: {u} retry counts: {count-1}, code: {put_result}")
                 logging.info(f"AutoAddFollowing: {u}")
+                sleep(0.5)
 
         if fail_range_page:
             OperateFiles("put_" + retry_detail_file, str(p)).delete()
             OperateFiles(retry_detail_file, str(p)).delete()
 
+
     total_page = int(config.Base().totalPage)
     retry_detail_file = config.Base().retryDetailFile
     step = group
-    try:
-        workers = cpu_count()*2
-    except NotImplementedError:
-        workers = 1
 
-    if not fail_range_page:
-        range_page = range(start_page, total_page, step)
-        print("Init range pages")
-    else:
-        range_page = fail_range_page
-        print("Retry put fail pages")
-
-    pool = ThreadPoolExecutor(workers)
-    futures = []
-
-    for page in range_page:
-        thread_id = page // step
-        # Submit multi parameters function to Executor
-        # https://python-parallel-programmning-cookbook.readthedocs.io/zh_CN/latest/chapter4/02_Using_the_concurrent.futures_Python_modules.html
-        # https://github.com/Joldnine/joldnine.github.io/issues/10
-        futures.append(pool.submit(task, page))
-        logging.info("Added: Thread-{}".format(threading.currentThread().ident))
-        print(f"Following Page: {page} Followings")
+    for start_page in range(start_page, group):
+        try:
+            workers = cpu_count()*2
+        except NotImplementedError:
+            workers = 1
 
         if not fail_range_page:
-            page = page + step
-            group = 1
-            print(f"Current Group: {group}, Total Group: {step}")
-            group = group + 1
-        print(f"Follow Page: {page} Done")
+            range_page = range(start_page, total_page, step)
+            print("Init range pages")
+        else:
+            range_page = fail_range_page
+            print("Retry put fail pages")
 
-    print(f"Just a moment, please wait...")
+        pool = ThreadPoolExecutor(workers)
+        futures = []
 
-    for x in as_completed(futures):
-        logging.info("{} completed".format(x))
+        for page in range_page:
+
+            # check limit
+            limit = AutoAddFollowing().get_rate_limit()
+            rate = AutoAddFollowing().get_rate_remaining()
+            reset = AutoAddFollowing().get_rate_reset()
+            sleep_time = delta_time(reset)
+
+            logging.info(f"GitHub Api Remaining {rate}")
+            if rate < 500:
+                logging.info(f"sleep {sleep_time}s...")
+                sleep(sleep_time + 1)
+
+            thread_id = page // step
+            # Submit multi parameters function to Executor
+            # https://python-parallel-programmning-cookbook.readthedocs.io/zh_CN/latest/chapter4/02_Using_the_concurrent.futures_Python_modules.html
+            # https://github.com/Joldnine/joldnine.github.io/issues/10
+            futures.append(pool.submit(task, page))
+            logging.info("Added: Thread-{}".format(threading.currentThread().ident))
+            print(f"Following Page: {page} Followings")
+
+            if not fail_range_page:
+                page = page + step
+                group = 1
+                print(f"Current Group: {group}, Total Group: {step}")
+                group = group + 1
+            print(f"Follow Page: {page} Done")
+
+        print(f"Just a moment, please wait...")
+
+        for x in as_completed(futures):
+            logging.info("{} completed".format(x))
 
 
 
