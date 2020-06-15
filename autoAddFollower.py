@@ -16,6 +16,9 @@ import config
 from concurrent.futures import ThreadPoolExecutor, wait, as_completed
 from multiprocessing import cpu_count
 import threading
+import random
+import string
+from utils import str_to_bool
 
 
 class OperateFiles:
@@ -56,9 +59,7 @@ class OperateFiles:
 
         with open(self.file_name, 'r+') as f:
             lines = f.readlines()
-            print(lines)
             numbers = [int(e.strip()) for e in lines if len(e.strip()) != 0]
-            print(numbers)
             logging.debug(f"read file list {numbers}")
             return numbers
 
@@ -199,6 +200,14 @@ class AutoAddFollowing(InitLogin):
     def get_following_total_count(self):
         return self.g.get_user().get_following().totalCount
 
+    @staticmethod
+    def random_user():
+        random_str = ''.join(random.sample(string.ascii_letters + string.digits + '-' + '_', random.randint(4, 20)))
+        random_list = []
+        for i in range(1, 1000000):
+            random_list.append(random_str)
+        return random_list
+
     def add_following(self, follow_user):
         # payload = {'username': follow_user}
         r = requests.put(self.apiUrl + f"/user/following/{follow_user}", headers=self.header)
@@ -214,6 +223,13 @@ if __name__ == '__main__':
     print("login github ok")
     c = login.get_cookies()
     t = login.get_token()
+    random_user = str_to_bool(config.Base().randomUser)
+    retry_count = int(config.Base().retryCount)
+    retry_detail_file = config.Base().retryDetailFile
+    fail_range_page = list(set(OperateFiles("put_" + retry_detail_file, "none").read() +
+                               OperateFiles(retry_detail_file, "none").read()))
+    start_page = int(config.Base().startPage)
+    group = int(config.Base().group)
 
     # print(cr)
     # print(login.get_token())
@@ -233,13 +249,10 @@ if __name__ == '__main__':
         user_list = []
         count = 0
 
-        retry_count = int(config.Base().retryCount)
-        retry_detail_file = config.Base().retryDetailFile
-
         logging.info(f"current page: {p}")
 
         while not exist_list:
-            if bool(config.Base().exceeded):
+            if str_to_bool(config.Base().exceeded):
                 exist_list = GetSomeoneInfo(config.Base().user, 1).get_followings()
             else:
                 exist_list = AutoAddFollowing().get_following()
@@ -256,7 +269,9 @@ if __name__ == '__main__':
         # sleep(3)
         logging.debug(f"user_list: {user_list}")
 
-        need_followings = list(set(user_list)-set(exist_list))
+        need_followings = list(set(user_list) - set(exist_list))
+        if random_user:
+            need_followings = AutoAddFollowing.random_user()
         logging.debug(f"need_followings: {need_followings}")
         if need_followings:
             for u in need_followings:
@@ -267,56 +282,51 @@ if __name__ == '__main__':
                     if count == retry_count:
                         OperateFiles("put_"+retry_detail_file, str(p)).write()
                         continue
-                    logging.info(f"Add following: {p} retry counts: {count-1}")
+                    logging.info(f"Add following: {p}:{u} retry counts: {count-1}, code: {put_result}")
                 logging.info(f"AutoAddFollowing: {u}")
-        OperateFiles("put_" + retry_detail_file, str(p)).delete()
-        OperateFiles(retry_detail_file, str(p)).delete()
+
+        if fail_range_page:
+            OperateFiles("put_" + retry_detail_file, str(p)).delete()
+            OperateFiles(retry_detail_file, str(p)).delete()
 
     total_page = int(config.Base().totalPage)
     retry_detail_file = config.Base().retryDetailFile
-    step = 5
+    step = group
     try:
         workers = cpu_count()*2
     except NotImplementedError:
         workers = 1
 
-    fail_range_page = list(set(OperateFiles("put_"+retry_detail_file, "none").read() +
-                               OperateFiles(retry_detail_file, "none").read()))
     if not fail_range_page:
-        range_page = range(4, total_page//step)
+        range_page = range(start_page, total_page, step)
         print("Init range pages")
     else:
         range_page = fail_range_page
         print("Retry put fail pages")
 
+    pool = ThreadPoolExecutor(workers)
+    futures = []
+
     for page in range_page:
-        pool = ThreadPoolExecutor(workers)
-        futures = []
-        thread_id = page//step
+        thread_id = page // step
         # Submit multi parameters function to Executor
+        # https://python-parallel-programmning-cookbook.readthedocs.io/zh_CN/latest/chapter4/02_Using_the_concurrent.futures_Python_modules.html
         # https://github.com/Joldnine/joldnine.github.io/issues/10
-        if fail_range_page:
-            for fail_page in fail_range_page:
-                futures.append(pool.submit(task, fail_page))
-                logging.info(f"Retry put fail page {fail_page}")
-                logging.info("Added: Thread-{}".format(threading.currentThread().ident))
-                print(f"Following Fail Page: {fail_page} Followings")
-        else:
-            while page < total_page:
-                futures.append(pool.submit(task, page))
-                logging.info("Added: Thread-{}".format(threading.currentThread().ident))
-                print(f"Following Page: {page} Followings")
-                page = page + step
+        futures.append(pool.submit(task, page))
+        logging.info("Added: Thread-{}".format(threading.currentThread().ident))
+        print(f"Following Page: {page} Followings")
 
         if not fail_range_page:
+            page = page + step
             group = 1
             print(f"Current Group: {group}, Total Group: {step}")
             group = group + 1
-        print(f"Just a moment, please wait...")
-
-        for x in as_completed(futures):
-            logging.info("{} completed".format(x.result()))
-
         print(f"Follow Page: {page} Done")
+
+    print(f"Just a moment, please wait...")
+
+    for x in as_completed(futures):
+        logging.info("{} completed".format(x))
+
 
 
