@@ -277,11 +277,11 @@ if __name__ == '__main__':
             for u in need_followings:
                 put_result = AutoAddFollowing().add_following(u)
                 while put_result != 200 and count <= retry_count:
-                    AutoAddFollowing().add_following(u)
-                    count = count + 1
                     if count == retry_count:
                         OperateFiles("put_"+retry_detail_file, str(p)).write()
                         continue
+                    AutoAddFollowing().add_following(u)
+                    count = count + 1
                     logging.info(f"Add following: {p}:{u} retry counts: {count-1}, code: {put_result}")
                 logging.info(f"AutoAddFollowing: {u}")
 

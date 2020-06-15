@@ -31,6 +31,10 @@
     apiUrl = https://api.github.com
     retryDetailFile = retry_detail_file.txt
     retryCount = 10 # If your network is not good, this parameter can be increased
+    retryCount = 10
+    randomUser = False
+    startPage = 5
+    group = 10
     ```
 
 4. Clone and Run
@@ -41,4 +45,10 @@
 5. Run fail job
     If you found put_retry_detail_file.txt and retry_detail_file.txt not 
     empty, you need `./AutoAddFollower.py` again.
+    
+    
+6. User random user `Update config.ini`
+    ```
+    randomUser = False
+    ```
 
