@@ -318,18 +318,22 @@ if __name__ == '__main__':
             for u in need_followings:
                 put_result = AutoAddFollowing().add_following(u)
                 # put_result = GetSomeoneInfo(config.Base().sourceUser, p).add_following(u, t)
-                while put_result != 200 and count <= retry_count:
+                while put_result != 204 and count <= retry_count:
                     if put_result == 404:
                         pass
                     AutoAddFollowing().add_following(u)
                     # GetSomeoneInfo(config.Base().sourceUser, p).add_following(u, t)
-                    count = count + 1
-                    if count == retry_count:
-                        OperateFiles("put_"+retry_detail_file, str(p)).write()
-                        continue
-                    logging.info(f"Add following: {p}: {u} retry counts: {count-1}, code: {put_result}")
+                    if count <= retry_count:
+                        count = count + 1
+                        if count == retry_count:
+                            OperateFiles("put_"+retry_detail_file, str(p)).write()
+                            continue
+                        logging.info(f"Add following: {p}: {u} retry counts: {count-1}, code: {put_result}")
+                        put_result = AutoAddFollowing().add_following(u)
+                        if put_result == 429:
+                            sleep(60)
+                            logging.info(f"code: {put_result}, sleep{60}")
                 logging.info(f"AutoAddFollowing: {u}")
-                sleep(0.5)
 
         if fail_range_page:
             OperateFiles("put_" + retry_detail_file, str(p)).delete()
