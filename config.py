@@ -13,7 +13,10 @@ import configparser
 import sys
 import json
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.WARNING,
+    datefmt='%Y-%m-%d %H:%M:%S')
 
 
 class GlobalVar:
@@ -39,8 +42,8 @@ class GlobalVar:
                 config_info[section] = {}
                 for option in self.config.options(section):
                     config_info[section][option] = self.config.get(section, option)
+                    self.__dict__.update({option: config_info[section][option]})
                 logging.debug(f"load config {config_info[section]}")
-                self.__dict__.update(config_info[section])
 
         except Exception as e:
             logging.error('读取变量失败{}'.format(e))

@@ -8,8 +8,6 @@
 
 2. Get personal access token
 
-    ![followers.png](image/followers.png)
-
     ![PersonalAccessTokens.png](image/PersonalAccessTokens.png)
 
     ```
@@ -23,23 +21,24 @@
     user = github nickname
     password = github password
     accessToken = github accessToken
+    baseUrl = https://github.com/
+    apiUrl = https://api.github.com
+   
+    [follower]
     sourceUser = Most followers someone nickname
     exceeded = True 
     totalPage = 2000
     exceeded = True # default. to solve limit of github
-    baseUrl = https://github.com/
-    apiUrl = https://api.github.com
     retryDetailFile = retry_detail_file.txt
     retryCount = 10 # If your network is not good, this parameter can be increased
-    retryCount = 10
     randomUser = False
-    startPage = 5
-    group = 10
+    startPage = 2
+    group = 100
     ```
 
 4. Clone and Run
     ```
-    git clone  && cd GithubOperator && ./AutoAddFollower.py
+    git clone https://github.com/zsjohny/GithubOperator.git && cd GithubOperator && ./AutoAddFollower.py
     ```
    
 5. Run fail job
@@ -52,9 +51,36 @@
     randomUser = False
     ```
    
-7. update log level `config.py`
+7. Update log level `config.py`
     ```
     logging.basicConfig(level=logging.WARNING)
     ```
     
+8. Result
+    ![followers.png](image/followers.png)
+    
+    ![following_demo.png](image/following_demo.png)
 
+
+
+## Automatically Mock Github Contributions
+
+1. Update config.ini
+    ```
+    [default]
+    email = github email
+    user = github nickname
+    password = github password
+    accessToken = github accessToken  [unnecessary]
+    baseUrl = https://github.com/
+    apiUrl = https://api.github.com
+   
+    [contributions]
+    repoName = mockGithubContributions
+    ```
+2.  Clone and Run
+    ```
+    git clone https://github.com/zsjohny/GithubOperator.git && 
+    cd GithubOperator && ./mockGithubContributions.py 365
+    ```
+    

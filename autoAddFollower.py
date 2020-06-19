@@ -22,6 +22,8 @@ from utils import str_to_bool, delta_time
 from time import sleep
 import json
 
+from initGithub import InitCrawler, InitLogin, GithubLogin
+
 
 class OperateFiles:
     def __init__(self, file_name, write_str):
@@ -64,97 +66,6 @@ class OperateFiles:
             numbers = [int(e.strip()) for e in lines if len(e.strip()) != 0]
             logging.debug(f"read file list {numbers}")
             return numbers
-
-
-class InitLogin(config.Base):
-    def __init__(self):
-        super().__init__()
-        self.g = Github(self.apiUrl, self.user, self.password)
-
-
-class InitCrawler(config.Base):
-    def __init__(self, someone, page):
-        super().__init__()
-        self.baseUrls = self.baseUrl + someone
-        self.followingQueryString = {"page": page, "tab": "following", "_pjax": "#js-pjax-container"}
-        self.followerQueryString = {"page": page, "tab": "followers", "_pjax": "#js-pjax-container"}
-
-        self.cookies = GithubLogin().get_cookies()
-        # self.token = GithubLogin().get_token()
-        self.header = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
-        }
-
-
-class GithubLogin(config.Base):
-
-    def __init__(self):
-        super().__init__()
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36',
-            'Referer': 'https://github.com/',
-            'Host': 'github.com'
-        }
-
-        self.session = requests.Session()
-        self.login_url = 'https://github.com/login'
-        self.post_url = 'https://github.com/session'
-
-    def login_github(self):
-        # 登录入口
-        post_data = {
-            'commit': 'Sign in',
-            'utf8': '✓',
-            'authenticity_token': self.get_token(),
-            'login': self.email,
-            'password': self.password
-        }
-        resp = self.session.post(
-            self.post_url, data=post_data, headers=self.headers)
-
-        logging.debug('StatusCode:', resp.status_code)
-        if resp.status_code != 200:
-            logging.error('Login Fail')
-        match = re.search(r'"user-login" content="(.*?)"', resp.text)
-        user_name = match.group(1)
-        logging.debug('UserName:', user_name)
-
-    # Get login token
-    def get_token(self):
-
-        response = self.session.get(self.login_url, headers=self.headers)
-
-        if response.status_code != 200:
-            logging.error(f'Get token fail, code: {response.status_code}, Please retry...')
-            return None
-        match = re.search(
-            r'name="authenticity_token" value="(.*?)"', response.text)
-        if not match:
-            logging.error('Get Token Fail')
-            return None
-        return match.group(1)
-
-    # Get login cookies
-    def get_cookies(self):
-        response = self.session.get(self.login_url, headers=self.headers, timeout=120, allow_redirects=False)
-
-        # keep cookie update
-        if response.cookies.get_dict():
-            self.session.cookies.update(response.cookies)
-            logging.debug('自动更新cookie成功: %s' % response.cookies)
-
-        # 根据location 获取的token去拿response cookie 并将CookieJar转为字典
-        try:
-            cookies = requests.utils.dict_from_cookiejar(response.cookies)
-            logging.debug('获取cookie成功: %s' % cookies)
-            return cookies
-        except Exception as e:
-            logging.error(f'获取cookie失败{e}')
-
-        finally:
-            response.cookies.clear()
 
 
 class GetSomeoneInfo(InitCrawler):
@@ -224,8 +135,8 @@ class AutoAddFollowing(InitLogin):
         r = requests.get(self.apiUrl + f"/rate_limit", headers=self.header)
         logging.debug(r.status_code)
         logging.debug(r.content)
-        limit = int(json.loads(r.content.decode('utf-8'))['rate']['limit'])
-        return limit
+        rate_limit = int(json.loads(r.content.decode('utf-8'))['rate']['limit'])
+        return rate_limit
 
     def get_rate_remaining(self):
         r = requests.get(self.apiUrl + f"/rate_limit", headers=self.header)
@@ -238,8 +149,8 @@ class AutoAddFollowing(InitLogin):
         r = requests.get(self.apiUrl + f"/rate_limit", headers=self.header)
         logging.debug(r.status_code)
         logging.debug(r.content)
-        reset = int(json.loads(r.content.decode('utf-8'))['rate']['reset'])
-        return reset
+        rate_reset = int(json.loads(r.content.decode('utf-8'))['rate']['reset'])
+        return rate_reset
 
     @staticmethod
     def random_user():
@@ -332,7 +243,7 @@ if __name__ == '__main__':
                         put_result = AutoAddFollowing().add_following(u)
                         if put_result == 429:
                             sleep(60)
-                            logging.info(f"code: {put_result}, sleep{60}")
+                            logging.info(f"code: {put_result}, sleep: {60}")
                 logging.info(f"AutoAddFollowing: {u}")
 
         if fail_range_page:

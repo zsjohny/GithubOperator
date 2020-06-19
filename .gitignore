@@ -5,3 +5,4 @@ retry_detail_file.txt
 put_retry_detail_file.txt
 __pycache__
 test.py
+nohup.out
