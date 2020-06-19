@@ -88,7 +88,7 @@ class MockContributions(InitLogin):
 
         for i in range(0, n):
             current_date = OperatePrepare(i, self.start_date).get_date_string()
-            num_commits = randint(1, 3)
+            num_commits = randint(1, 10)
             for commit in range(0, num_commits):
                 logging.debug(current_date)
                 commit_result = subprocess.run(f"cd /tmp/{config.Base().repoName}; "
