@@ -16,7 +16,8 @@ import logging
 import config
 import base64
 import requests
-from time import sleep
+import datetime
+import time
 
 from initGithub import InitLogin
 from github import Github
@@ -24,10 +25,12 @@ from github import Github
 
 class OperatePrepare:
     def __init__(self, days, start_date):
-        self.date = start_date - timedelta(days=days)
+        self.n_days_ago = start_date - timedelta(days=days)
+        self.start_date = start_date
+        self.days = days
 
     def get_date_string(self):
-        result = self.date.strftime("%a %b %d %X %Y %z -0400")
+        result = self.n_days_ago.strftime("%a %b %d %X %Y %z -0400")
         return result
 
 
@@ -70,8 +73,7 @@ class MockContributions(InitLogin):
                           "eg. python mockGithubContributions.py 365")
             sys.exit(1)
 
-        n = int(self.argv [0])
-        i = 0
+        n = int(self.argv[0])
         init_result = subprocess.run(f"cd /tmp; rm -rf {config.Base().repoName}; mkdir -pv {config.Base().repoName}; "
                                      f"cd {config.Base().repoName}; "
                                      f"git init; "
@@ -84,17 +86,18 @@ class MockContributions(InitLogin):
         else:
             logging.info(f"Init Repo success: {init_result}")
 
-        while i <= n:
+        for i in range(0, n):
             current_date = OperatePrepare(i, self.start_date).get_date_string()
-            num_commits = randint(1, 10)
+            num_commits = randint(1, 3)
             for commit in range(0, num_commits):
+                logging.debug(current_date)
                 commit_result = subprocess.run(f"cd /tmp/{config.Base().repoName}; "
                                                f"echo '{current_date + str(randint(0, 1000000))}' > mock_commits.txt; "
                                                f"sync; "
                                                f"git add mock_commits.txt; "
-                                               f"GIT_AUTHOR_DATE='{current_date}' "
-                                               f"GIT_COMMITTER_DATE='{current_date}'; "
-                                               f"git commit -m 'update'; ",
+                                               f"export GIT_AUTHOR_DATE='{current_date}' "
+                                               f"export GIT_COMMITTER_DATE='{current_date}'; "
+                                               f"git commit -m 'update' --date '{current_date}'; ",
                                                shell=True, check=True
                                                )
                 if commit_result.returncode != 0:
