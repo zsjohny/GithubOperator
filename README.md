@@ -45,7 +45,6 @@
     If you found put_retry_detail_file.txt and retry_detail_file.txt not 
     empty, you need `./AutoAddFollower.py` again.
     
-    
 6. User random user `Update config.ini`
     ```
     randomUser = False
@@ -65,7 +64,13 @@
 
 ## Automatically Mock Github Contributions
 
-1. Update config.ini
+1. Update Email
+
+    The email address used for the commits is associated with your GitHub account.
+
+    [Learn how we count contributions.](https://help.github.com/en/github/setting-up-and-managing-your-github-profile/why-are-my-contributions-not-showing-up-on-my-profile)
+   
+2. Update config.ini
     ```
     [default]
     email = github email
@@ -78,9 +83,16 @@
     [contributions]
     repoName = mockGithubContributions
     ```
-2.  Clone and Run
+   
+3.  Clone and Run
     ```
     git clone https://github.com/zsjohny/GithubOperator.git && 
     cd GithubOperator && ./mockGithubContributions.py 365
     ```
+    
+4. Result
+    ![mockGithubContributionsCommit.png](image/mockGithubContributionsCommit.png)
+    
+    ![contributions-result.png](image/contributions-result.png)
+    
     

@@ -118,6 +118,10 @@ class MockContributions(InitLogin):
 
 
 if __name__ == '__main__':
+    print("Please make sure the email address used for the commits is associated with your GitHub account.")
+    print("https://help.github.com/en/github/setting-up-and-managing-your-github-profile/"
+          "why-are-my-contributions-not-showing-up-on-my-profile")
+    time.sleep(30)
     print("Check repo libs...")
     if not MockContributions().check_repos():
         create_code = MockContributions().create_repo()
