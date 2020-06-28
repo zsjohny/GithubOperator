@@ -1,4 +1,5 @@
 # GithubOperator
+The tool is 😈 risky, Please use caution.👀
 
 ##  Automatically follow github user accounts
 
